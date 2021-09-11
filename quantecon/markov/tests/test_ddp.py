@@ -56,7 +56,7 @@ class TestDiscreteDP:
             res_init = ddp.solve(method='value_iteration', v_init=v_init,
                                  epsilon=self.epsilon)
 
-            # Check v is an epsilon/2-approxmation of v_star
+            # Check v is an epsilon/2-approximation of v_star
             ok_(np.abs(res.v - self.v_star).max() < self.epsilon/2)
             ok_(np.abs(res_init.v - self.v_star).max() < self.epsilon/2)
 
@@ -89,7 +89,7 @@ class TestDiscreteDP:
                                  v_init=v_init,
                                  epsilon=self.epsilon)
 
-            # Check v is an epsilon/2-approxmation of v_star
+            # Check v is an epsilon/2-approximation of v_star
             ok_(np.abs(res.v - self.v_star).max() < self.epsilon/2)
             ok_(np.abs(res_init.v - self.v_star).max() < self.epsilon/2)
 
@@ -103,11 +103,31 @@ class TestDiscreteDP:
             res = ddp.solve(method='modified_policy_iteration',
                             epsilon=self.epsilon, k=k)
 
-            # Check v is an epsilon/2-approxmation of v_star
+            # Check v is an epsilon/2-approximation of v_star
             ok_(np.abs(res.v - self.v_star).max() < self.epsilon/2)
 
             # Check sigma == sigma_star
             assert_array_equal(res.sigma, self.sigma_star)
+
+    def test_linear_programming(self):
+        for ddp in self.ddps:
+            if ddp._sparse:
+                assert_raises(NotImplementedError, ddp.solve,
+                              method='linear_programming')
+            else:
+                res = ddp.solve(method='linear_programming')
+
+                v_init = [0, 1]
+                res_init = ddp.solve(method='linear_programming',
+                                     v_init=v_init)
+
+                # Check v == v_star
+                assert_allclose(res.v, self.v_star)
+                assert_allclose(res_init.v, self.v_star)
+
+                # Check sigma == sigma_star
+                assert_array_equal(res.sigma, self.sigma_star)
+                assert_array_equal(res_init.sigma, self.sigma_star)
 
 
 def test_ddp_beta_0():
@@ -122,13 +142,18 @@ def test_ddp_beta_0():
 
     ddp0 = DiscreteDP(R, Q, beta)
     ddp1 = ddp0.to_sa_pair_form()
-    methods = ['vi', 'pi', 'mpi']
+    ddp2 = ddp0.to_sa_pair_form(sparse=False)
+    methods = ['vi', 'pi', 'mpi', 'lp']
 
-    for ddp in [ddp0, ddp1]:
+    for ddp in [ddp0, ddp1, ddp2]:
         for method in methods:
-            res = ddp.solve(method=method, v_init=v_init)
-            assert_array_equal(res.sigma, sigma_star)
-            assert_array_equal(res.v, v_star)
+            if method == 'lp' and ddp._sparse:
+                assert_raises(NotImplementedError, ddp.solve,
+                              method=method, v_init=v_init)
+            else:
+                res = ddp.solve(method=method, v_init=v_init)
+                assert_array_equal(res.sigma, sigma_star)
+                assert_array_equal(res.v, v_star)
 
 
 def test_ddp_sorting():
